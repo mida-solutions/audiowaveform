@@ -35,6 +35,7 @@
 #include <limits>
 #include <sstream>
 #include <stdexcept>
+#include <math.h> 
 
 //------------------------------------------------------------------------------
 
@@ -215,15 +216,71 @@ void WaveformGenerator::done()
 }
 
 //------------------------------------------------------------------------------
+double convert(short n, short bits) {
+    double max = pow(2, bits - 1);
+    double v = n < 0 ? n * max : n * (max - 1);
+    double v2 = (max - 1) < v ? (max - 1) : v;
+    return (-max) > v2 ? (-max) : v2;
+}
 
 // See BlockFile::CalcSummary in Audacity
-
+//BEM qui calcolo
 bool WaveformGenerator::process(
     const short* input_buffer,
     const int input_frame_count)
 {
+
+    short numPeaks = input_frame_count / samples_per_pixel_;
+    int peaks[numPeaks*2];
+    
+    log(Info) << "BEM input_buffer:" << sizeof(input_buffer)<<"\n";
+    log(Info) << "BEM input_frame_count:" << input_frame_count << "\n";
+    log(Info) << "BEM channels_:" << channels_ << "\n";
+    log(Info) << "BEM samples_per_pixel_:" << samples_per_pixel_ << "\n";
+
+
+
+
+    //BEM TODO sistema bits
+    short bits = 16;
+
+    for (short i = 0; i < numPeaks; ++i) {
+        short start = i * samples_per_pixel_;
+        short end = (i + 1) * samples_per_pixel_ > input_frame_count ? input_frame_count : (i + 1) * samples_per_pixel_;
+
+
+       /* for (short i = start; i < end; i++)
+            log(Info) << input_buffer[i] << ",";
+        log(Info) << "\n" << "\n" << "\n" << "\n" << "\n" << "\n";
+        */
+
+        short extrema_min = *(std::min_element(input_buffer + start, input_buffer + end));
+        short extrema_max = *(std::max_element(input_buffer + start, input_buffer + end));
+        //log(Info) << "extrema_min:"<< extrema_min<<"\n" << "extrema_max"<< extrema_max<<"\n" << "\n";
+        int min = convert(extrema_min, bits);
+        int max = convert(extrema_max, bits);
+        peaks[i * 2] = extrema_min;
+        peaks[i * 2 + 1] = extrema_max;
+    }
+    /*for (int i = 0; i < sizeof(peaks); i++)
+        log(Info) << peaks[i]<< ",";
+        */
+
+    for (int i = 0; i< numPeaks; i++) {
+        buffer_.appendSamples(
+            peaks[i*2],peaks[i*2+1]
+        );
+    }
+
+    //reset();
+     
+    return true;
+
+    /*
+    
     for (int i = 0; i < input_frame_count; ++i) {
         const int index = i * channels_;
+        
 
         if (output_channels_ == 1) {
             // Sum samples from each input channel to make a single (mono) waveform
@@ -250,8 +307,24 @@ bool WaveformGenerator::process(
             if (sample > max_[0]) {
                 max_[0] = sample;
             }
+
+            int bits = 16;
+            if (extrema_min > sample)
+                extrema_min = sample;
+            if (extrema_max < sample)
+                extrema_max = sample;
+
+            min_[0] = convert(extrema_min, bits);
+            max_[0] = convert(extrema_max, bits);
         }
         else {
+            for (int channel = 0; channel < channels_; ++channel) {
+                int sample = input_buffer[index + channel];
+                if (extrema_min > sample)
+                    extrema_min = sample;
+                if (extrema_max < sample)
+                    extrema_max = sample;
+            }
             for (int channel = 0; channel < channels_; ++channel) {
                 int sample = input_buffer[index + channel];
 
@@ -270,6 +343,11 @@ bool WaveformGenerator::process(
                 if (sample > max_[channel]) {
                     max_[channel] = sample;
                 }
+
+                int bits = 16;
+
+                min_[channel] = convert(extrema_min, bits);
+                max_[channel] = convert(extrema_max, bits);
             }
         }
 
@@ -285,7 +363,7 @@ bool WaveformGenerator::process(
         }
     }
 
-    return true;
+    return true;*/
 }
 
 //------------------------------------------------------------------------------
