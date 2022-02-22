@@ -202,13 +202,6 @@ void WaveformGenerator::reset()
 void WaveformGenerator::done()
 {
     if (count_ > 0) {
-        for (int channel = 0; channel < output_channels_; ++channel) {
-            buffer_.appendSamples(
-                static_cast<short>(min_[channel]),
-                static_cast<short>(max_[channel])
-            );
-        }
-
         reset();
     }
 
